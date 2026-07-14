@@ -5,22 +5,30 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
-@Table(name = "app_tutorials")
-public class AppTutorial {
+@Table(name = "chat_messages")
+public class ConversationMessage {
+
+    public static final int MAX_CONTENT_LENGTH = 10000;
 
     @Id
     private String id;
 
-    @Column(nullable = false)
-    private String title;
+    @JsonProperty("conversation_id")
+    @Column(name = "conversation_id", nullable = false)
+    private String conversationId;
 
-    @Column(length = 4000)
+    @JsonProperty("sender_id")
+    @Column(name = "sender_id", nullable = false)
+    private String senderId;
+
+    @JsonProperty("content")
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(nullable = false, length = MAX_CONTENT_LENGTH)
     private String content;
-
-    @Column
-    private String url;
 
     @JsonProperty("file_name")
     @Column(name = "file_name")
@@ -34,12 +42,8 @@ public class AppTutorial {
     @Column(name = "mime_type")
     private String mimeType;
 
-    @JsonProperty("user_id")
-    @Column(name = "user_id", nullable = false)
-    private String userId;
-
     @JsonProperty("created_at")
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private String createdAt;
 
     public String getId() {
@@ -50,12 +54,20 @@ public class AppTutorial {
         this.id = id;
     }
 
-    public String getTitle() {
-        return title;
+    public String getConversationId() {
+        return conversationId;
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    public void setConversationId(String conversationId) {
+        this.conversationId = conversationId;
+    }
+
+    public String getSenderId() {
+        return senderId;
+    }
+
+    public void setSenderId(String senderId) {
+        this.senderId = senderId;
     }
 
     public String getContent() {
@@ -64,14 +76,6 @@ public class AppTutorial {
 
     public void setContent(String content) {
         this.content = content;
-    }
-
-    public String getUrl() {
-        return url;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
     }
 
     public String getFileName() {
@@ -96,14 +100,6 @@ public class AppTutorial {
 
     public void setMimeType(String mimeType) {
         this.mimeType = mimeType;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
     }
 
     public String getCreatedAt() {

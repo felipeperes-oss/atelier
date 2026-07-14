@@ -16,6 +16,9 @@ import { Route as AuthenticatedTutoriaisRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedIndividualRouteImport } from './routes/_authenticated/individual'
 import { Route as AuthenticatedGrupoRouteImport } from './routes/_authenticated/grupo'
+import { Route as AuthenticatedChecklistIndividualRouteImport } from './routes/_authenticated/checklist-individual'
+import { Route as AuthenticatedChecklistGrupoRouteImport } from './routes/_authenticated/checklist-grupo'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedAnotacoesIndividuaisRouteImport } from './routes/_authenticated/anotacoes-individuais'
 import { Route as AuthenticatedAnotacoesGeraisRouteImport } from './routes/_authenticated/anotacoes-gerais'
 import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
@@ -54,6 +57,23 @@ const AuthenticatedGrupoRoute = AuthenticatedGrupoRouteImport.update({
   path: '/grupo',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedChecklistIndividualRoute =
+  AuthenticatedChecklistIndividualRouteImport.update({
+    id: '/checklist-individual',
+    path: '/checklist-individual',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedChecklistGrupoRoute =
+  AuthenticatedChecklistGrupoRouteImport.update({
+    id: '/checklist-grupo',
+    path: '/checklist-grupo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAnotacoesIndividuaisRoute =
   AuthenticatedAnotacoesIndividuaisRouteImport.update({
     id: '/anotacoes-individuais',
@@ -78,6 +98,9 @@ export interface FileRoutesByFullPath {
   '/alertas': typeof AuthenticatedAlertasRoute
   '/anotacoes-gerais': typeof AuthenticatedAnotacoesGeraisRoute
   '/anotacoes-individuais': typeof AuthenticatedAnotacoesIndividuaisRoute
+  '/chat': typeof AuthenticatedChatRoute
+  '/checklist-grupo': typeof AuthenticatedChecklistGrupoRoute
+  '/checklist-individual': typeof AuthenticatedChecklistIndividualRoute
   '/grupo': typeof AuthenticatedGrupoRoute
   '/individual': typeof AuthenticatedIndividualRoute
   '/painel': typeof AuthenticatedPainelRoute
@@ -89,6 +112,9 @@ export interface FileRoutesByTo {
   '/alertas': typeof AuthenticatedAlertasRoute
   '/anotacoes-gerais': typeof AuthenticatedAnotacoesGeraisRoute
   '/anotacoes-individuais': typeof AuthenticatedAnotacoesIndividuaisRoute
+  '/chat': typeof AuthenticatedChatRoute
+  '/checklist-grupo': typeof AuthenticatedChecklistGrupoRoute
+  '/checklist-individual': typeof AuthenticatedChecklistIndividualRoute
   '/grupo': typeof AuthenticatedGrupoRoute
   '/individual': typeof AuthenticatedIndividualRoute
   '/painel': typeof AuthenticatedPainelRoute
@@ -102,6 +128,9 @@ export interface FileRoutesById {
   '/_authenticated/alertas': typeof AuthenticatedAlertasRoute
   '/_authenticated/anotacoes-gerais': typeof AuthenticatedAnotacoesGeraisRoute
   '/_authenticated/anotacoes-individuais': typeof AuthenticatedAnotacoesIndividuaisRoute
+  '/_authenticated/chat': typeof AuthenticatedChatRoute
+  '/_authenticated/checklist-grupo': typeof AuthenticatedChecklistGrupoRoute
+  '/_authenticated/checklist-individual': typeof AuthenticatedChecklistIndividualRoute
   '/_authenticated/grupo': typeof AuthenticatedGrupoRoute
   '/_authenticated/individual': typeof AuthenticatedIndividualRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
@@ -115,6 +144,9 @@ export interface FileRouteTypes {
     | '/alertas'
     | '/anotacoes-gerais'
     | '/anotacoes-individuais'
+    | '/chat'
+    | '/checklist-grupo'
+    | '/checklist-individual'
     | '/grupo'
     | '/individual'
     | '/painel'
@@ -126,6 +158,9 @@ export interface FileRouteTypes {
     | '/alertas'
     | '/anotacoes-gerais'
     | '/anotacoes-individuais'
+    | '/chat'
+    | '/checklist-grupo'
+    | '/checklist-individual'
     | '/grupo'
     | '/individual'
     | '/painel'
@@ -138,6 +173,9 @@ export interface FileRouteTypes {
     | '/_authenticated/alertas'
     | '/_authenticated/anotacoes-gerais'
     | '/_authenticated/anotacoes-individuais'
+    | '/_authenticated/chat'
+    | '/_authenticated/checklist-grupo'
+    | '/_authenticated/checklist-individual'
     | '/_authenticated/grupo'
     | '/_authenticated/individual'
     | '/_authenticated/painel'
@@ -201,6 +239,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGrupoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/checklist-individual': {
+      id: '/_authenticated/checklist-individual'
+      path: '/checklist-individual'
+      fullPath: '/checklist-individual'
+      preLoaderRoute: typeof AuthenticatedChecklistIndividualRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/checklist-grupo': {
+      id: '/_authenticated/checklist-grupo'
+      path: '/checklist-grupo'
+      fullPath: '/checklist-grupo'
+      preLoaderRoute: typeof AuthenticatedChecklistGrupoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/chat': {
+      id: '/_authenticated/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/anotacoes-individuais': {
       id: '/_authenticated/anotacoes-individuais'
       path: '/anotacoes-individuais'
@@ -229,6 +288,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAlertasRoute: typeof AuthenticatedAlertasRoute
   AuthenticatedAnotacoesGeraisRoute: typeof AuthenticatedAnotacoesGeraisRoute
   AuthenticatedAnotacoesIndividuaisRoute: typeof AuthenticatedAnotacoesIndividuaisRoute
+  AuthenticatedChatRoute: typeof AuthenticatedChatRoute
+  AuthenticatedChecklistGrupoRoute: typeof AuthenticatedChecklistGrupoRoute
+  AuthenticatedChecklistIndividualRoute: typeof AuthenticatedChecklistIndividualRoute
   AuthenticatedGrupoRoute: typeof AuthenticatedGrupoRoute
   AuthenticatedIndividualRoute: typeof AuthenticatedIndividualRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
@@ -240,6 +302,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAnotacoesGeraisRoute: AuthenticatedAnotacoesGeraisRoute,
   AuthenticatedAnotacoesIndividuaisRoute:
     AuthenticatedAnotacoesIndividuaisRoute,
+  AuthenticatedChatRoute: AuthenticatedChatRoute,
+  AuthenticatedChecklistGrupoRoute: AuthenticatedChecklistGrupoRoute,
+  AuthenticatedChecklistIndividualRoute: AuthenticatedChecklistIndividualRoute,
   AuthenticatedGrupoRoute: AuthenticatedGrupoRoute,
   AuthenticatedIndividualRoute: AuthenticatedIndividualRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,

@@ -8,7 +8,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export function NotesPage({ scope, title, subtitle }: { scope: "general" | "individual"; title: string; subtitle: string }) {
@@ -55,7 +66,7 @@ export function NotesPage({ scope, title, subtitle }: { scope: "general" | "indi
 
   const del = useMutation({
     mutationFn: async (id: string) => {
-      await api.notes.remove(id);
+      await api.notes.remove(id, user?.id);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["notes"] }); toast.success("Removido"); },
   });
@@ -77,11 +88,41 @@ export function NotesPage({ scope, title, subtitle }: { scope: "general" | "indi
           <Card key={n.id} className="p-5 break-inside-avoid cursor-pointer group hover:border-accent-foreground/30 transition" onClick={() => openEdit(n)}>
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-display text-xl">{n.title}</h3>
-              {n.user_id === user?.id && (
-                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); del.mutate(n.id); }} className="opacity-0 group-hover:opacity-100 transition">
-                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+              <div className="flex opacity-0 transition group-hover:opacity-100">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEdit(n);
+                  }}
+                >
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
                 </Button>
-              )}
+                {n.user_id === user?.id && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir anotacao?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Essa acao remove a anotacao definitivamente.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => del.mutate(n.id)} disabled={del.isPending}>
+                        Excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                )}
+              </div>
             </div>
             {n.content && <p className="text-sm text-foreground/80 mt-2 whitespace-pre-wrap line-clamp-6">{n.content}</p>}
             <p className="text-xs text-muted-foreground mt-3">

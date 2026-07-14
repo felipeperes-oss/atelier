@@ -1,10 +1,11 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Calendar, Users, User, FileText, BookOpen, Bell, NotebookPen, LogOut, Menu, Mail, UserRound } from "lucide-react";
+import { Calendar, Users, User, FileText, BookOpen, Bell, NotebookPen, LogOut, Menu, Mail, UserRound, MessageCircleMore, ListChecks } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { API_BASE } from "@/lib/api";
 import { signOut } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { ProfileDialog } from "@/components/profile-dialog";
 
@@ -12,8 +13,11 @@ const items = [
   { to: "/painel", label: "Calendário", icon: Calendar },
   { to: "/grupo", label: "Trabalho em grupo", icon: Users },
   { to: "/individual", label: "Trabalho individual", icon: User },
+  { to: "/checklist-grupo", label: "Checklist em grupo", icon: ListChecks },
+  { to: "/checklist-individual", label: "Checklist individual", icon: ListChecks },
   { to: "/anotacoes-gerais", label: "Anotações gerais", icon: FileText },
   { to: "/anotacoes-individuais", label: "Anotações individuais", icon: NotebookPen },
+  { to: "/chat", label: "Chat", icon: MessageCircleMore },
   { to: "/tutoriais", label: "Tutoriais", icon: BookOpen },
   { to: "/alertas", label: "Alertas", icon: Bell },
 ] as const;
@@ -30,7 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <aside
         className={cn(
@@ -69,6 +73,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="mb-3 rounded-xl border border-sidebar-border bg-sidebar-accent/40 p-3">
               <div className="flex items-center gap-3">
                 <Avatar className="h-11 w-11">
+                  {user.photo_url && (
+                    <AvatarImage src={`${API_BASE}${user.photo_url}`} alt={user.display_name} className="object-cover" />
+                  )}
                   <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
                     {user.display_name
                       .split(" ")
@@ -103,14 +110,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
         <header className="lg:hidden h-14 border-b border-border flex items-center px-4 bg-card">
           <Button variant="ghost" size="icon" onClick={() => setOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
           <div className="font-display text-xl ml-3">Atelier</div>
         </header>
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 min-h-0 overflow-y-auto">
           {children}
         </main>
       </div>

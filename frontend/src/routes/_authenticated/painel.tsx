@@ -11,6 +11,17 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -23,6 +34,9 @@ export const Route = createFileRoute("/_authenticated/painel")({
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
+const MONTHLY_RECURRENCE_COUNT = 12;
+const TASK_DESCRIPTION_PREVIEW_LIMIT = 120;
+
 type Assignee = TaskAssignee;
 
 function ymd(d: Date) {
@@ -30,6 +44,23 @@ function ymd(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${dd}`;
+}
+
+function daysInMonth(year: number, monthIndex: number) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function addMonthsKeepingClosestDay(startDate: string, monthOffset: number) {
+  const [year, month, day] = startDate.split("-").map(Number);
+  const targetMonthIndex = month - 1 + monthOffset;
+  const targetYear = year + Math.floor(targetMonthIndex / 12);
+  const normalizedMonthIndex = ((targetMonthIndex % 12) + 12) % 12;
+  const safeDay = Math.min(day, daysInMonth(targetYear, normalizedMonthIndex));
+  return `${targetYear}-${String(normalizedMonthIndex + 1).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`;
+}
+
+function monthlyTaskDates(startDate: string) {
+  return Array.from({ length: MONTHLY_RECURRENCE_COUNT }, (_, index) => addMonthsKeepingClosestDay(startDate, index));
 }
 
 function PainelPage() {
@@ -65,7 +96,8 @@ function PainelPage() {
     },
   });
 
-  const profileMap = useMemo(() => Object.fromEntries(profiles.map((p) => [p.id, p])), [profiles]);
+  const visibleProfiles = useMemo(() => profiles.filter((profile) => profile.display_name.trim()), [profiles]);
+  const profileMap = useMemo(() => Object.fromEntries(visibleProfiles.map((p) => [p.id, p])), [visibleProfiles]);
   const tasksByDate = useMemo(() => {
     const map: Record<string, Task[]> = {};
     for (const t of tasks) (map[t.task_date] ||= []).push(t);
@@ -96,11 +128,15 @@ function PainelPage() {
 
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
-      await api.tasks.remove(id);
+      await api.tasks.remove(id, user?.id);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["task_assignees"] });
       toast.success("Tarefa removida");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Erro ao remover tarefa");
     },
   });
 
@@ -136,17 +172,25 @@ function PainelPage() {
             const key = ymd(d);
             const dayTasks = tasksByDate[key] || [];
             const isToday = key === ymd(today);
+            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const isPast = dayStart < todayStart;
             return (
               <button
                 key={key}
                 onClick={() => setSelectedDate(key)}
                 className={cn(
                   "group text-left rounded-md border border-border bg-card p-2 sm:min-h-28 transition-colors hover:border-accent-foreground/30 hover:bg-accent/30 flex flex-col",
-                  isToday && "ring-1 ring-foreground/30"
+                  isToday && "ring-1 ring-foreground/30",
+                  isPast && "opacity-65"
                 )}
               >
                 <div className="flex items-center justify-between">
-                  <span className={cn("text-sm font-medium", isToday && "font-display text-lg")}>{d.getDate()}</span>
+                  <span className={cn(
+                    "text-sm font-medium",
+                    isToday && "font-display text-lg",
+                    isPast && "line-through decoration-2 decoration-muted-foreground/70 text-muted-foreground"
+                  )}>{d.getDate()}</span>
                   {dayTasks.length > 0 && (
                     <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{dayTasks.length}</Badge>
                   )}
@@ -159,7 +203,7 @@ function PainelPage() {
                         <div className={cn("truncate", t.done && "line-through text-muted-foreground")}>{t.title}</div>
                         {aIds.length > 0 && (
                           <div className="truncate text-muted-foreground">
-                            {aIds.slice(0, 2).map((id) => profileMap[id]?.display_name?.split(" ")[0] ?? "").filter(Boolean).join(", ")}
+                            {aIds.slice(0, 2).map((id) => profileMap[id]?.display_name?.trim().split(" ")[0] ?? "").filter(Boolean).join(", ")}
                             {aIds.length > 2 && ` +${aIds.length - 2}`}
                           </div>
                         )}
@@ -180,7 +224,7 @@ function PainelPage() {
         date={selectedDate}
         onClose={() => setSelectedDate(null)}
         tasks={selectedDate ? tasksByDate[selectedDate] || [] : []}
-        profiles={profiles}
+        profiles={visibleProfiles}
         assigneesByTask={assigneesByTask}
         currentUserId={user?.id ?? ""}
         onToggle={(id, done) => toggleDone.mutate({ id, done })}
@@ -211,26 +255,32 @@ function DayDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  const [recurring, setRecurring] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function handleAdd() {
     if (!title.trim() || !date) return;
     setSaving(true);
     try {
-      const task = await api.tasks.create({
-        title: title.trim(),
-        description: description.trim() || null,
-        task_date: date,
-        scope: "group",
-        done: false,
-        created_by: currentUserId,
-      });
+      const dates = recurring ? monthlyTaskDates(date) : [date];
+      const createdTasks = [];
+      for (const taskDate of dates) {
+        const task = await api.tasks.create({
+          title: title.trim(),
+          description: description.trim() || null,
+          task_date: taskDate,
+          scope: "group",
+          done: false,
+          created_by: currentUserId,
+        });
+        createdTasks.push(task);
+      }
       if (picked.length > 0) {
-        const rows = picked.map((uid) => ({ task_id: task.id, user_id: uid }));
+        const rows = createdTasks.flatMap((task) => picked.map((uid) => ({ task_id: task.id, user_id: uid })));
         await api.taskAssignees.create(rows);
       }
-      toast.success("Tarefa criada");
-      setTitle(""); setDescription(""); setPicked([]); setAdding(false);
+      toast.success(recurring ? "Tarefas recorrentes criadas" : "Tarefa criada");
+      setTitle(""); setDescription(""); setPicked([]); setRecurring(false); setAdding(false);
       onRefresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro");
@@ -242,25 +292,58 @@ function DayDialog({
   const formatted = date ? new Date(date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }) : "";
 
   return (
-    <Dialog open={!!date} onOpenChange={(o) => !o && (onClose(), setAdding(false))}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={!!date} onOpenChange={(o) => !o && (onClose(), setAdding(false), setRecurring(false))}>
+      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl capitalize">{formatted}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+        <div className="space-y-3 max-h-[42vh] overflow-y-auto overflow-x-hidden pr-1">
           {tasks.length === 0 && !adding && (
             <p className="text-sm text-muted-foreground italic">Nenhuma tarefa ainda.</p>
           )}
           {tasks.map((t) => {
             const aIds = assigneesByTask[t.id] || [];
-            const names = aIds.map((id) => profiles.find((p) => p.id === id)?.display_name).filter(Boolean);
+            const names = aIds.map((id) => profiles.find((p) => p.id === id)?.display_name.trim()).filter(Boolean);
+            const hasLongDescription = (t.description?.length ?? 0) > TASK_DESCRIPTION_PREVIEW_LIMIT;
             return (
               <div key={t.id} className="flex items-start gap-3 p-3 rounded-md border border-border bg-card">
                 <Checkbox checked={t.done} onCheckedChange={(c) => onToggle(t.id, !!c)} className="mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <div className={cn("font-medium", t.done && "line-through text-muted-foreground")}>{t.title}</div>
-                  {t.description && <p className="text-sm text-muted-foreground mt-0.5">{t.description}</p>}
+                  <div className={cn("font-medium break-words", t.done && "line-through text-muted-foreground")}>{t.title}</div>
+                  {t.description && (
+                    hasLongDescription ? (
+                      <div className="mt-1 space-y-1.5">
+                        <p className="text-sm text-muted-foreground line-clamp-2 break-all whitespace-pre-wrap">
+                          {t.description}
+                        </p>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs">
+                              Mais informações
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="font-display text-2xl break-words">{t.title}</AlertDialogTitle>
+                              <AlertDialogDescription asChild>
+                                <div className="max-h-[55vh] overflow-y-auto overflow-x-hidden rounded-md border border-border bg-card p-3">
+                                  <p className="whitespace-pre-wrap break-all text-sm text-muted-foreground">
+                                    {t.description}
+                                  </p>
+                                </div>
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Fechar</AlertDialogCancel>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground mt-0.5 break-all whitespace-pre-wrap">{t.description}</p>
+                    )
+                  )}
                   {names.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {names.map((n) => <Badge key={n} variant="secondary" className="text-[10px]">{n}</Badge>)}
@@ -268,9 +351,27 @@ function DayDialog({
                   )}
                 </div>
                 {t.created_by === currentUserId && (
-                  <Button variant="ghost" size="icon" onClick={() => onDelete(t.id)}>
-                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Essa acao remove a tarefa definitivamente. Deseja continuar?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete(t.id)}>
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
             );
@@ -287,6 +388,19 @@ function DayDialog({
               <Label htmlFor="desc">Descrição</Label>
               <Textarea id="desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} maxLength={1000} />
             </div>
+            <label className="flex items-start gap-3 rounded-md border border-border p-3 text-sm">
+              <Checkbox
+                checked={recurring}
+                onCheckedChange={(checked) => setRecurring(!!checked)}
+                className="mt-0.5"
+              />
+              <span className="space-y-0.5">
+                <span className="block font-medium">Tarefa recorrente mensal</span>
+                <span className="block text-xs text-muted-foreground">
+                  Cria {MONTHLY_RECURRENCE_COUNT} tarefas mensais, incluindo esta data.
+                </span>
+              </span>
+            </label>
             <div className="space-y-1.5">
               <Label>Atribuir a</Label>
               <div className="flex flex-wrap gap-2">
@@ -302,7 +416,7 @@ function DayDialog({
                         active ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent"
                       )}
                     >
-                      {p.display_name}
+                      {p.display_name.trim()}
                     </button>
                   );
                 })}
@@ -311,12 +425,12 @@ function DayDialog({
           </div>
         ) : null}
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 gap-2 border-t border-border bg-background px-6 py-4">
           {!adding ? (
             <Button onClick={() => setAdding(true)}><Plus className="h-4 w-4 mr-1" /> Nova tarefa</Button>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => setAdding(false)}>Cancelar</Button>
+              <Button variant="ghost" onClick={() => (setAdding(false), setRecurring(false))}>Cancelar</Button>
               <Button onClick={handleAdd} disabled={saving || !title.trim()}>Salvar</Button>
             </>
           )}

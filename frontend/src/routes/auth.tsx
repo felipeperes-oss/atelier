@@ -14,10 +14,15 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const schema = z.object({
+const signupSchema = z.object({
   email: z.string().trim().email("E-mail invalido").max(255),
   password: z.string().min(6, "Minimo 6 caracteres").max(72),
-  displayName: z.string().trim().min(1).max(80).optional(),
+  displayName: z.string().trim().min(1, "Informe seu nome").max(80),
+});
+
+const signinSchema = z.object({
+  email: z.string().trim().email("E-mail invalido").max(255),
+  password: z.string().min(6, "Minimo 6 caracteres").max(72),
 });
 
 function AuthPage() {
@@ -35,7 +40,11 @@ function AuthPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const parsed = schema.safeParse({ email, password, displayName: mode === "signup" ? displayName : undefined });
+
+    const parsed = mode === "signup"
+      ? signupSchema.safeParse({ email, password, displayName })
+      : signinSchema.safeParse({ email, password });
+
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
@@ -85,7 +94,14 @@ function AuthPage() {
             {mode === "signup" && (
               <div className="space-y-2">
                 <Label htmlFor="name">Nome</Label>
-                <Input id="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Seu nome" maxLength={80} />
+                <Input
+                  id="name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Seu nome"
+                  maxLength={80}
+                  required
+                />
               </div>
             )}
             <div className="space-y-2">

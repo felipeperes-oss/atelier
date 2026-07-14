@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Mail, PencilLine, UserRound, KeyRound } from "lucide-react";
-import { api, type AppUser } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { Camera, Mail, PencilLine, UserRound, KeyRound } from "lucide-react";
+import { api, API_BASE, type AppUser } from "@/lib/api";
 import { setStoredUser } from "@/lib/auth";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +14,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -31,11 +43,14 @@ function initials(name: string) {
 }
 
 export function ProfileDialog({ user }: ProfileDialogProps) {
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -44,11 +59,24 @@ export function ProfileDialog({ user }: ProfileDialogProps) {
     setEmail(user.email);
     setPassword("");
     setConfirmPassword("");
+    setSelectedPhoto(null);
   }, [user, open]);
+
+  useEffect(() => {
+    if (!selectedPhoto) {
+      setPhotoPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(selectedPhoto);
+    setPhotoPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedPhoto]);
 
   if (!user) return null;
 
   async function handleSave() {
+    if (!user) return;
     const nextDisplayName = displayName.trim();
     const nextEmail = email.trim().toLowerCase();
     const nextPassword = password.trim();
@@ -69,16 +97,31 @@ export function ProfileDialog({ user }: ProfileDialogProps) {
       toast.error("A confirmacao de senha nao confere.");
       return;
     }
+    if (selectedPhoto && !selectedPhoto.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem.");
+      return;
+    }
+    if (selectedPhoto && selectedPhoto.size > 5 * 1024 * 1024) {
+      toast.error("A foto precisa ter ate 5 MB.");
+      return;
+    }
 
     setSaving(true);
     try {
-      const { user: updatedUser } = await api.profiles.update(user.id, {
-        display_name: nextDisplayName,
-        email: nextEmail,
-        password: nextPassword || undefined,
-      });
+      let updatedUser = (
+        await api.profiles.update(user.id, {
+          display_name: nextDisplayName,
+          email: nextEmail,
+          password: nextPassword || undefined,
+        })
+      ).user;
+      if (selectedPhoto) {
+        updatedUser = (await api.profiles.updatePhoto(user.id, selectedPhoto)).user;
+      }
       setStoredUser(updatedUser);
+      await qc.invalidateQueries({ queryKey: ["profiles"] });
       toast.success("Perfil atualizado");
+      setSelectedPhoto(null);
       setOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao atualizar perfil");
@@ -86,6 +129,8 @@ export function ProfileDialog({ user }: ProfileDialogProps) {
       setSaving(false);
     }
   }
+
+  const photoUrl = photoPreviewUrl ?? (user.photo_url ? `${API_BASE}${user.photo_url}` : null);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -103,6 +148,7 @@ export function ProfileDialog({ user }: ProfileDialogProps) {
 
         <div className="flex items-center gap-4 rounded-xl border border-border bg-muted/30 p-4">
           <Avatar className="h-12 w-12">
+            {photoUrl && <AvatarImage src={photoUrl} alt={displayName || user.display_name} className="object-cover" />}
             <AvatarFallback className="bg-primary text-primary-foreground">
               {initials(displayName || user.display_name)}
             </AvatarFallback>
@@ -117,6 +163,15 @@ export function ProfileDialog({ user }: ProfileDialogProps) {
               <span className="truncate">{email || user.email}</span>
             </div>
           </div>
+          <label className="ml-auto inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md border border-input bg-background hover:bg-accent">
+            <Camera className="h-4 w-4" />
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => setSelectedPhoto(event.target.files?.[0] ?? null)}
+            />
+          </label>
         </div>
 
         <div className="space-y-4">
@@ -169,10 +224,28 @@ export function ProfileDialog({ user }: ProfileDialogProps) {
         </div>
 
         <DialogFooter>
-          <Button onClick={handleSave} disabled={saving}>
-            <KeyRound className="h-4 w-4" />
-            {saving ? "Salvando..." : "Salvar alteracoes"}
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button disabled={saving}>
+                <KeyRound className="h-4 w-4" />
+                {saving ? "Salvando..." : "Salvar alteracoes"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Salvar alteracoes?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  As informacoes do seu perfil serao atualizadas para os novos dados preenchidos.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleSave} disabled={saving}>
+                  Salvar alteracoes
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </DialogFooter>
       </DialogContent>
     </Dialog>

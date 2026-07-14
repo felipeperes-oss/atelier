@@ -17,6 +17,10 @@ public class Profile {
     @Column(name = "display_name", nullable = false)
     private String displayName;
 
+    @JsonProperty("photo_url")
+    @Column(name = "photo_url")
+    private String photoUrl;
+
     public String getId() {
         return id;
     }
@@ -31,5 +35,13 @@ public class Profile {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
     }
 }
